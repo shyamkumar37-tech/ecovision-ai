@@ -30,9 +30,11 @@ target_metadata = Base.metadata
 
 def _async_url(url: str) -> str:
     if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if "sslmode=require" in url:
+        url = url.replace("sslmode=require", "ssl=require")
     return url
 
 

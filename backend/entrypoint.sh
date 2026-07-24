@@ -33,13 +33,15 @@ import os, sys
 from urllib.parse import urlparse
 
 url = os.environ.get("DATABASE_URL", "")
-# Convert asyncpg URL to sync psycopg2 URL for the health check
-url = url.replace("postgresql+asyncpg://", "postgresql://") \
-         .replace("postgres://", "postgresql://")
+url = url.replace("postgresql+asyncpg://", "postgresql://").replace("postgres://", "postgresql://")
 
 if not url or "localhost" in url or "127.0.0.1" in url:
     print(f"  DB URL appears to be localhost ({url[:40]}...) — skipping wait", flush=True)
-    sys.exit(0)  # skip wait; migration will fail with a clear error below
+    sys.exit(0)
+
+if "sslmode=" not in url and "ssl=" not in url:
+    sep = "&" if "?" in url else "?"
+    url = f"{url}{sep}sslmode=require"
 
 try:
     import psycopg2
@@ -47,7 +49,7 @@ try:
     conn.close()
     sys.exit(0)
 except Exception as e:
-    print(f"  Not ready: {e}", flush=True)
+    print(f"  Not ready ({type(e).__name__}): {e}", flush=True)
     sys.exit(1)
 EOF
   then
