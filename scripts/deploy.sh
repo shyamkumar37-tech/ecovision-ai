@@ -21,6 +21,8 @@ source .env
 [[ "${POSTGRES_PASSWORD:-}" ]]                    || error "POSTGRES_PASSWORD is not set!"
 [[ "${REDIS_PASSWORD:-}" ]]                       || error "REDIS_PASSWORD is not set!"
 
+mkdir -p backend/uploads backend/reports backend/logs
+
 info "Pre-flight checks passed ✓"
 
 # ── Build frontend ────────────────────────────────────────────────

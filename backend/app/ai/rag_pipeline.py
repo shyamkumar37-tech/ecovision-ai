@@ -59,8 +59,17 @@ class _Resources:
         logger.info("Loading embedding model: {}", settings.EMBEDDING_MODEL)
         self.embedder = SentenceTransformer(settings.EMBEDDING_MODEL)
 
-        logger.info("Using local ChromaDB (persistent)")
-        self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
+        if settings.CHROMA_HOST and settings.CHROMA_HOST not in ("localhost", "127.0.0.1"):
+            logger.info("Connecting to remote/container ChromaDB at {}:{}", settings.CHROMA_HOST, settings.CHROMA_PORT)
+            try:
+                self._chroma_client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
+            except Exception as e:
+                logger.warning("Failed to connect to ChromaDB HttpClient: {}. Falling back to PersistentClient.", e)
+                self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
+        else:
+            logger.info("Using local ChromaDB (persistent)")
+            self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
+
         self.collection = self._chroma_client.get_or_create_collection(
             name=settings.CHROMA_COLLECTION,
             metadata={"hnsw:space": "cosine"},

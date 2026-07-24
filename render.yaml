@@ -57,6 +57,8 @@ services:
         value: /tmp/reports
       - key: ALLOWED_ORIGINS
         value: https://ecovision-frontend.onrender.com
+      - key: OPENROUTER_MODEL
+        value: mistralai/mistral-7b-instruct
 
   # ---------------------------------------------------------------------------
   # 2. Celery Worker
@@ -93,6 +95,8 @@ services:
         value: /tmp/uploads
       - key: REPORTS_DIR
         value: /tmp/reports
+      - key: OPENROUTER_MODEL
+        value: mistralai/mistral-7b-instruct
 
   # ---------------------------------------------------------------------------
   # 3. Redis
