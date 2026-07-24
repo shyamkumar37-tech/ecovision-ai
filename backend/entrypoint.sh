@@ -73,4 +73,9 @@ echo "[entrypoint] Migrations complete ✓"
 
 # ── Start the web server ────────────────────────────────────────────────────
 echo "[entrypoint] Starting web server..."
-exec "$@"
+if [ -n "${PORT:-}" ]; then
+  echo "[entrypoint] Binding to Railway PORT: ${PORT}"
+  exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 1 --bind "0.0.0.0:${PORT}" --timeout 120 --access-logfile - --error-logfile -
+else
+  exec "$@"
+fi
