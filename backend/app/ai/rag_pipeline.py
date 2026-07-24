@@ -26,9 +26,25 @@ try:
     from langchain_text_splitters import RecursiveCharacterTextSplitter
 except ImportError:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
-from sentence_transformers import SentenceTransformer
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    try:
+        from langchain_community.chat_models import ChatOpenAI
+    except ImportError:
+        ChatOpenAI = None
+
+try:
+    from langchain.schema import HumanMessage, SystemMessage
+except ImportError:
+    try:
+        from langchain_core.messages import HumanMessage, SystemMessage
+    except ImportError:
+        HumanMessage, SystemMessage = None, None
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
 from loguru import logger
 
 from app.core.config import settings
