@@ -2,8 +2,8 @@
 FROM python:3.11-slim AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev libmagic1 curl && rm -rf /var/lib/apt/lists/*
-COPY . /build/
-RUN if [ -f /build/requirements.txt ]; then pip install --no-cache-dir --user -r /build/requirements.txt; else pip install --no-cache-dir --user -r /build/backend/requirements.txt; fi
+COPY requirements.txt /build/requirements.txt
+RUN pip install --no-cache-dir --user -r /build/requirements.txt
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Stage 2: Development
