@@ -3,7 +3,7 @@ app/ai/rag_pipeline.py
 ──────────────────────
 Full RAG pipeline:
   1. Document ingestion  → extract → split → embed → store in ChromaDB
-  2. Query              → embed → similarity search → prompt → Granite → answer
+  2. Query              → embed → similarity search → prompt → OpenRouter LLM → answer
   3. Hallucination guard built into system prompt
   4. Redis caching for identical queries (TTL 1 hour)
   5. SDG auto-tagging on every AI response
@@ -19,12 +19,12 @@ from typing import Any
 
 try:
     import chromadb
-   
 except ImportError:
     chromadb = None
-    ChromaSettings = None
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_ibm import WatsonxLLM
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
 from sentence_transformers import SentenceTransformer
 from loguru import logger
 
@@ -59,27 +59,27 @@ class _Resources:
         logger.info("Loading embedding model: {}", settings.EMBEDDING_MODEL)
         self.embedder = SentenceTransformer(settings.EMBEDDING_MODEL)
 
-       logger.info("Using local ChromaDB")
+        logger.info("Using local ChromaDB (persistent)")
+        self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
+        self.collection = self._chroma_client.get_or_create_collection(
+            name=settings.CHROMA_COLLECTION,
+            metadata={"hnsw:space": "cosine"},
+        )
 
-self._chroma_client = chromadb.PersistentClient(
-    path="./chroma_db"
-)
-
-self.collection = self._chroma_client.get_or_create_collection(
-    name=settings.CHROMA_COLLECTION,
-    metadata={"hnsw:space": "cosine"},
-)
-        logger.info("Initialising IBM Granite LLM: {}", settings.GRANITE_MODEL_ID)
-        self.llm = WatsonxLLM(
-            model_id=settings.GRANITE_MODEL_ID,
-            url=settings.WATSONX_URL,
-            apikey=settings.WATSONX_API_KEY,
-            project_id=settings.WATSONX_PROJECT_ID,
-            params={
-                "max_new_tokens": 512,
-                "temperature": 0.3,
-                "top_p": 0.9,
-                "repetition_penalty": 1.1,
+        logger.info("Initialising OpenRouter LLM: {}", settings.OPENROUTER_MODEL)
+        # ChatOpenAI is compatible with OpenRouter's OpenAI-compatible API
+        self.llm = ChatOpenAI(
+            model=settings.OPENROUTER_MODEL,
+            openai_api_key=settings.OPENROUTER_API_KEY,
+            openai_api_base="https://openrouter.ai/api/v1",
+            max_tokens=512,
+            temperature=0.3,
+            model_kwargs={
+                # OpenRouter-specific headers passed via extra_headers
+                "extra_headers": {
+                    "HTTP-Referer": "https://ecovision-ai.onrender.com",
+                    "X-Title": "EcoVision AI",
+                },
             },
         )
 
@@ -191,7 +191,6 @@ def _build_prompt(context_chunks: list[dict], question: str) -> str:
         for c in context_chunks
     )
     return (
-        f"{_SYSTEM_PROMPT}\n\n"
         f"=== CONTEXT DOCUMENTS ===\n{context_text}\n\n"
         f"=== USER QUESTION ===\n{question}\n\n"
         f"=== ANSWER ==="
@@ -205,7 +204,7 @@ def query_rag(
 ) -> dict:
     """
     Full RAG query:
-      embed question → similarity search → build prompt → Granite → answer
+      embed question → similarity search → build prompt → OpenRouter LLM → answer
     Returns: {"answer": str, "sources": list[dict], "sdg_tags": list[str]}
     """
     # ── Cache check ───────────────────────────────────────────────────────────
@@ -243,10 +242,14 @@ def query_rag(
         )
     ]
 
-    # ── Generate with Granite ─────────────────────────────────────────────────
+    # ── Generate with OpenRouter ──────────────────────────────────────────────
     if context_chunks:
-        prompt = _build_prompt(context_chunks, question)
-        answer = res.llm.invoke(prompt)
+        messages = [
+            SystemMessage(content=_SYSTEM_PROMPT),
+            HumanMessage(content=_build_prompt(context_chunks, question)),
+        ]
+        response = res.llm.invoke(messages)
+        answer = response.content
     else:
         answer = "I don't have enough information to answer that from the available documents."
 
@@ -274,17 +277,61 @@ def stream_rag(
 ) -> Any:
     """
     Generator that yields text tokens one-by-one for StreamingResponse.
-    Falls back to full response if Granite doesn't support streaming.
+    Uses OpenRouter streaming via LangChain's ChatOpenAI stream() method.
     """
-    result = query_rag(question, institution_id, redis_client)
-    answer = result["answer"]
+    # ── Cache check ───────────────────────────────────────────────────────────
+    cache_key = "rag:" + hashlib.sha256(
+        f"{institution_id}:{question}".encode()
+    ).hexdigest()
 
-    # Yield word by word to simulate streaming (real streaming needs langchain callback)
-    words = answer.split(" ")
-    for i, word in enumerate(words):
-        sep = " " if i < len(words) - 1 else ""
-        yield word + sep
+    if redis_client:
+        cached = redis_client.get(cache_key)
+        if cached:
+            data = json.loads(cached)
+            yield data["answer"]
+            yield f"\n\n__SOURCES__:{json.dumps(data['sources'])}"
+            yield f"\n__SDGS__:{json.dumps(data['sdg_tags'])}"
+            return
 
-    # Yield metadata as a JSON sentinel at the end
-    yield f"\n\n__SOURCES__:{json.dumps(result['sources'])}"
-    yield f"\n__SDGS__:{json.dumps(result['sdg_tags'])}"
+    res = _Resources.get()
+
+    q_embedding = res.embedder.encode([question], show_progress_bar=False)[0].tolist()
+    results = res.collection.query(
+        query_embeddings=[q_embedding],
+        n_results=settings.TOP_K_RESULTS,
+        where={"institution_id": institution_id},
+    )
+
+    context_chunks = [
+        {
+            "text":        doc,
+            "filename":    meta["filename"],
+            "chunk_index": meta["chunk_index"],
+            "document_id": meta["document_id"],
+        }
+        for doc, meta in zip(results["documents"][0], results["metadatas"][0])
+    ]
+
+    full_answer = ""
+    if context_chunks:
+        messages = [
+            SystemMessage(content=_SYSTEM_PROMPT),
+            HumanMessage(content=_build_prompt(context_chunks, question)),
+        ]
+        for chunk in res.llm.stream(messages):
+            token = chunk.content
+            full_answer += token
+            yield token
+    else:
+        full_answer = "I don't have enough information to answer that from the available documents."
+        yield full_answer
+
+    sdg_tags = tag_sdgs(full_answer)
+
+    # Cache full response
+    if redis_client:
+        payload = {"answer": full_answer.strip(), "sources": context_chunks, "sdg_tags": sdg_tags}
+        redis_client.setex(cache_key, settings.CACHE_TTL_SECONDS, json.dumps(payload))
+
+    yield f"\n\n__SOURCES__:{json.dumps(context_chunks)}"
+    yield f"\n__SDGS__:{json.dumps(sdg_tags)}"

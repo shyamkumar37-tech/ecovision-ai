@@ -22,10 +22,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    WATSONX_API_KEY: str = ""
-    WATSONX_PROJECT_ID: str = ""
-    WATSONX_URL: str = "https://us-south.ml.cloud.ibm.com"
-    GRANITE_MODEL_ID: str = "ibm/granite-13b-instruct-v2"
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "mistralai/mistral-7b-instruct"  # any model on openrouter.ai
     CHROMA_HOST: str = "localhost"
     CHROMA_PORT: int = 8000
     CHROMA_COLLECTION: str = "ecovision_docs"
