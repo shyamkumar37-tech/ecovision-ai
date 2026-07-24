@@ -91,20 +91,20 @@ def require_roles(*roles: UserRole):
 # ── Convenience role shortcuts ────────────────────────────────────────────────
 
 def any_authenticated():
-    return Depends(get_current_user)
+    return get_current_user
 
 def require_faculty_or_above():
-    return Depends(require_roles(
+    return require_roles(
         UserRole.faculty,
         UserRole.sustainability_officer,
         UserRole.admin,
-    ))
+    )
 
 def require_officer_or_above():
-    return Depends(require_roles(
+    return require_roles(
         UserRole.sustainability_officer,
         UserRole.admin,
-    ))
+    )
 
 def require_admin():
-    return Depends(require_roles(UserRole.admin))
+    return require_roles(UserRole.admin)
