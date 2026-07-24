@@ -1,0 +1,184 @@
+###############################################################################
+# EcoVision AI — Render Blueprint (render.yaml)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Services defined here:
+#   1. backend   — FastAPI / Gunicorn web service (Docker)
+#   2. celery    — Celery background worker (Docker)
+#   3. postgres  — Managed PostgreSQL database
+#   4. redis     — Managed Redis instance
+#   5. frontend  — Vite/React static site
+###############################################################################
+
+databases:
+  - name: ecovision-postgres
+    databaseName: ecovision
+    user: ecovision
+    plan: free                       # upgrade to starter/standard for production
+    region: oregon
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Backend — FastAPI / Gunicorn web service
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: ecovision-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+
+    envVars:
+      # Core
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: APP_VERSION
+        value: "2.0.0"
+
+      # Database — auto-injected from the linked Postgres service
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecovision-postgres
+          property: connectionString
+
+      # Redis — auto-injected from the linked Redis service
+      - key: REDIS_URL
+        fromService:
+          name: ecovision-redis
+          type: redis
+          property: connectionString
+
+      # Secrets — set these manually in the Render dashboard (sync: false)
+      - key: SECRET_KEY
+        sync: false
+      - key: WATSONX_API_KEY
+        sync: false
+      - key: WATSONX_PROJECT_ID
+        sync: false
+      - key: WATSONX_URL
+        value: https://us-south.ml.cloud.ibm.com
+      - key: GRANITE_MODEL_ID
+        value: ibm/granite-13b-instruct-v2
+
+      # ChromaDB (update host if using a separate Render private service)
+      - key: CHROMA_HOST
+        value: localhost
+      - key: CHROMA_PORT
+        value: "8000"
+      - key: CHROMA_COLLECTION
+        value: ecovision_docs
+
+      # CORS — update after frontend deploys
+      - key: ALLOWED_ORIGINS
+        value: https://ecovision-frontend.onrender.com
+
+      # Ephemeral storage paths (no persistent disk on free/starter)
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+      - key: REPORTS_DIR
+        value: /tmp/reports
+
+      # Optional — Sentry error tracking
+      - key: SENTRY_DSN
+        sync: false
+
+      # Optional — Email (SMTP)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAILS_FROM
+        value: noreply@ecovision.ai
+
+  # ---------------------------------------------------------------------------
+  # 2. Celery Worker
+  # ---------------------------------------------------------------------------
+  - type: worker
+    name: ecovision-celery
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile.celery
+    dockerContext: ./backend
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: true
+
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecovision-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: ecovision-redis
+          type: redis
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+      - key: WATSONX_API_KEY
+        sync: false
+      - key: WATSONX_PROJECT_ID
+        sync: false
+      - key: WATSONX_URL
+        value: https://us-south.ml.cloud.ibm.com
+      - key: GRANITE_MODEL_ID
+        value: ibm/granite-13b-instruct-v2
+      - key: CHROMA_HOST
+        value: localhost
+      - key: CHROMA_PORT
+        value: "8000"
+      - key: CHROMA_COLLECTION
+        value: ecovision_docs
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+      - key: REPORTS_DIR
+        value: /tmp/reports
+
+  # ---------------------------------------------------------------------------
+  # 3. Redis
+  # ---------------------------------------------------------------------------
+  - type: redis
+    name: ecovision-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+
+  # ---------------------------------------------------------------------------
+  # 4. Frontend — Vite/React Static Site
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: ecovision-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    region: oregon
+    branch: main
+    autoDeploy: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://ecovision-backend.onrender.com
