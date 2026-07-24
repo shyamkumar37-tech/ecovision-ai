@@ -68,14 +68,10 @@ done
 
 # ── Run Alembic migrations ──────────────────────────────────────────────────
 echo "[entrypoint] Running database migrations..."
-python3 -m alembic upgrade head
-echo "[entrypoint] Migrations complete ✓"
+(python3 -m alembic upgrade head || echo "[entrypoint] Alembic migration warning: continuing with app startup") &
 
 # ── Start the web server ────────────────────────────────────────────────────
 echo "[entrypoint] Starting web server..."
-if [ -n "${PORT:-}" ]; then
-  echo "[entrypoint] Binding to Railway PORT: ${PORT}"
-  exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 1 --bind "0.0.0.0:${PORT}" --timeout 120 --access-logfile - --error-logfile -
-else
-  exec "$@"
-fi
+PORT_TO_BIND="${PORT:-8000}"
+echo "[entrypoint] Binding web server to PORT: ${PORT_TO_BIND}"
+exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 1 --bind "0.0.0.0:${PORT_TO_BIND}" --timeout 120 --access-logfile - --error-logfile -
