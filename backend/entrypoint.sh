@@ -8,7 +8,8 @@ echo "[entrypoint] Creating runtime directories..."
 mkdir -p /tmp/uploads /tmp/reports
 
 echo "[entrypoint] Running database migrations..."
-alembic upgrade head
+# Use 'python -m alembic' to guarantee the correct Python + site-packages
+python -m alembic upgrade head
 
 echo "[entrypoint] Starting web server..."
 exec "$@"
