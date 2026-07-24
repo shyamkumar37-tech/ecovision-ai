@@ -4,7 +4,15 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        # Render mounts Secret Files at /app/.env (WORKDIR).
+        # Locally, .env sits in the backend/ directory.
+        # pydantic-settings tries each path in order and uses the first found.
+        env_file=["/app/.env", ".env"],
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",          # ignore unknown keys in .env
+    )
     APP_NAME: str = "EcoVision AI"
     APP_VERSION: str = "2.0.0"
     DEBUG: bool = False
