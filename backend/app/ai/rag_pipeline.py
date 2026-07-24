@@ -22,7 +22,10 @@ try:
 except ImportError:
     chromadb = None
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except ImportError:
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 from sentence_transformers import SentenceTransformer

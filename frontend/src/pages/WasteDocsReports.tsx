@@ -1,12 +1,16 @@
-// src/pages/Waste.tsx
-import { useState } from 'react'
+// src/pages/WasteDocsReports.tsx
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
+import { useDropzone } from 'react-dropzone'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { useWasteAnalyze } from '@/hooks'
-import { SDGBadge, TipItem, PageHeader, StatusBadge } from '@/components/ui'
+import { FileText, Trash2, Upload, CheckCircle, AlertCircle, Clock, BarChart3, Download, Loader2 } from 'lucide-react'
+import { useWasteAnalyze, useDocuments, useUploadDocument, useDeleteDocument, useGenerateReport, useReportStatus } from '@/hooks'
+import { SDGBadge, TipItem, PageHeader, StatusBadge, EmptyState, Skeleton } from '@/components/ui'
+import { reportsApi } from '@/lib/api'
+import { formatDistanceToNow } from 'date-fns'
 import type { WasteAnalyzeResponse } from '@/types'
 
 const schema = z.object({
@@ -159,13 +163,6 @@ export default function Waste() {
 // ════════════════════════════════════════════════════════════════════════════
 // src/pages/Documents.tsx
 // ════════════════════════════════════════════════════════════════════════════
-import { useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
-import { motion } from 'framer-motion'
-import { FileText, Trash2, Upload, CheckCircle, AlertCircle, Clock } from 'lucide-react'
-import { useDocuments, useUploadDocument, useDeleteDocument } from '@/hooks'
-import { PageHeader, StatusBadge, EmptyState, Skeleton } from '@/components/ui'
-import { formatDistanceToNow } from 'date-fns'
 
 export function Documents() {
   const { data: docs, isLoading } = useDocuments()
@@ -193,12 +190,13 @@ export function Documents() {
       <PageHeader title="Document Intelligence" subtitle="Upload PDFs & DOCX for RAG-powered Q&A · ChromaDB vector store" />
 
       {/* Drop zone */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        {...getRootProps()}
-        className={`card mb-6 flex flex-col items-center justify-center py-12 cursor-pointer transition-all duration-200 text-center border-2 border-dashed
-          ${isDragActive ? 'border-eco-500 bg-eco-green/5 shadow-glow' : 'border-eco-border hover:border-eco-500/50 hover:bg-eco-elevated/30'}`}
-      >
-        <input {...getInputProps()} />
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        <div
+          {...getRootProps()}
+          className={`card mb-6 flex flex-col items-center justify-center py-12 cursor-pointer transition-all duration-200 text-center border-2 border-dashed
+            ${isDragActive ? 'border-eco-500 bg-eco-green/5 shadow-glow' : 'border-eco-border hover:border-eco-500/50 hover:bg-eco-elevated/30'}`}
+        >
+          <input {...getInputProps()} />
         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-2xl transition-transform duration-200 ${isDragActive ? 'scale-110 shadow-glow' : ''}`}
           style={{ background: isDragActive ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.08)' }}>
           {uploading ? <span className="w-6 h-6 border-2 border-eco-500/30 border-t-eco-500 rounded-full animate-spin" /> : <Upload size={24} className="text-eco-400" />}
@@ -208,6 +206,7 @@ export function Documents() {
         </h3>
         <p className="text-sm text-eco-muted">PDF, DOCX, TXT · Max 10MB per file</p>
         <p className="text-xs text-eco-muted/60 mt-2">Files are chunked (512 tokens) and indexed into ChromaDB for RAG retrieval</p>
+        </div>
       </motion.div>
 
       {/* Pipeline status */}
@@ -282,37 +281,28 @@ export function Documents() {
 // ════════════════════════════════════════════════════════════════════════════
 // src/pages/Reports.tsx
 // ════════════════════════════════════════════════════════════════════════════
-import { useState as useStateR } from 'react'
-import { motion as motionR } from 'framer-motion'
-import { useForm as useFormR } from 'react-hook-form'
-import { z as zR } from 'zod'
-import { zodResolver as zodR } from '@hookform/resolvers/zod'
-import { BarChart3, Download, FileText as FT, Loader2 } from 'lucide-react'
-import { useGenerateReport, useReportStatus } from '@/hooks'
-import { PageHeader as PH, StatusBadge as SB, EmptyState as ES } from '@/components/ui'
-import { reportsApi } from '@/lib/api'
 
-const rSchema = zR.object({
-  title:           zR.string().min(1),
-  start_month:     zR.coerce.number().min(1).max(12),
-  start_year:      zR.coerce.number().min(2020),
-  end_month:       zR.coerce.number().min(1).max(12),
-  end_year:        zR.coerce.number().min(2020),
-  include_ai_insights:   zR.boolean(),
-  include_sdg_alignment: zR.boolean(),
+const rSchema = z.object({
+  title:           z.string().min(1),
+  start_month:     z.coerce.number().min(1).max(12),
+  start_year:      z.coerce.number().min(2020),
+  end_month:       z.coerce.number().min(1).max(12),
+  end_year:        z.coerce.number().min(2020),
+  include_ai_insights:   z.boolean(),
+  include_sdg_alignment: z.boolean(),
 })
-type ReportForm = zR.infer<typeof rSchema>
+type ReportForm = z.infer<typeof rSchema>
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 export function Reports() {
-  const [reportId, setReportId] = useStateR<string | null>(null)
-  const [history, setHistory] = useStateR<any[]>([])
+  const [reportId, setReportId] = useState<string | null>(null)
+  const [history, setHistory] = useState<any[]>([])
   const { mutate: generate, isPending } = useGenerateReport()
   const { data: status } = useReportStatus(reportId)
 
-  const { register, handleSubmit } = useFormR<ReportForm>({
-    resolver: zodR(rSchema),
+  const { register, handleSubmit } = useForm<ReportForm>({
+    resolver: zodResolver(rSchema),
     defaultValues: {
       title: 'Campus Sustainability Report',
       start_month: 1, start_year: 2025,
@@ -332,11 +322,11 @@ export function Reports() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <PH title="Sustainability Reports" subtitle="AI-generated PDFs with SDG alignment · Celery background tasks" />
+      <PageHeader title="Sustainability Reports" subtitle="AI-generated PDFs with SDG alignment · Celery background tasks" />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Generator form */}
-        <motionR.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-2">
           <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 rounded-lg bg-eco-500/10 flex items-center justify-center">
@@ -394,11 +384,11 @@ export function Reports() {
             </button>
 
             {status && (
-              <motionR.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="p-3 rounded-xl bg-eco-elevated border border-eco-border/50 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-eco-muted">Task status</span>
-                  <SB status={status.status} />
+                  <StatusBadge status={status.status} />
                 </div>
                 {status.status === 'ready' && status.download_url && (
                   <a href={reportsApi.download(reportId!)} download
@@ -406,43 +396,43 @@ export function Reports() {
                     <Download size={13} />Download PDF
                   </a>
                 )}
-              </motionR.div>
+              </motion.div>
             )}
           </form>
-        </motionR.div>
+        </motion.div>
 
         {/* History */}
-        <motionR.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-3">
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-3">
           <div className="card">
             <h3 className="font-display text-sm font-semibold text-eco-text mb-4">Report History</h3>
             {history.length === 0 ? (
-              <ES icon="📊" title="No reports yet" description="Generate your first sustainability report to see it here." />
+              <EmptyState icon="📊" title="No reports yet" description="Generate your first sustainability report to see it here." />
             ) : (
               <div className="space-y-2">
                 {history.map((r: any) => (
-                  <motionR.div key={r.id}
+                  <motion.div key={r.id}
                     initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                     className="flex items-center gap-3 p-3.5 rounded-xl bg-eco-elevated/40 border border-eco-border/30"
                   >
                     <div className="w-9 h-9 rounded-xl bg-eco-500/10 flex items-center justify-center flex-shrink-0">
-                      {r.status === 'ready' ? <FT size={16} className="text-eco-400" /> : <Loader2 size={16} className="text-amber-400 animate-spin" />}
+                      {r.status === 'ready' ? <FileText size={16} className="text-eco-400" /> : <Loader2 size={16} className="text-amber-400 animate-spin" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-eco-text truncate">{r.title}</div>
                       <div className="text-[11px] text-eco-muted">{new Date(r.created_at).toLocaleString()}</div>
                     </div>
-                    <SB status={r.status} />
+                    <StatusBadge status={r.status} />
                     {r.download_url && (
                       <a href={reportsApi.download(r.id)} download className="p-1.5 rounded-lg hover:bg-eco-500/10 text-eco-muted hover:text-eco-400 transition-colors">
                         <Download size={14} />
                       </a>
                     )}
-                  </motionR.div>
+                  </motion.div>
                 ))}
               </div>
             )}
           </div>
-        </motionR.div>
+        </motion.div>
       </div>
     </div>
   )

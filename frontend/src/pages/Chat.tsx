@@ -235,7 +235,7 @@ Connect your IBM Granite backend to get RAG-powered answers from your uploaded s
           </motion.div>
         ) : (
           <AnimatePresence>
-            {messages.map(m => <ChatBubble key={m.id} msg={m} />)}
+            {messages.map((m: any) => <ChatBubble key={m.id} msg={m} />)}
           </AnimatePresence>
         )}
         <div ref={bottomRef} />
