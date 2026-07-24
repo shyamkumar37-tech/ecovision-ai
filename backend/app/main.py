@@ -72,7 +72,6 @@ def create_app() -> FastAPI:
     )
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-    Instrumentator(should_group_status_codes=True, excluded_handlers=["/health","/ready","/metrics"]).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     prefix = "/api/v1"
     app.include_router(auth_router,      prefix=prefix)
@@ -104,6 +103,8 @@ def create_app() -> FastAPI:
         except Exception: pass
         ok = all(checks.values())
         return JSONResponse(status_code=200 if ok else 503, content={"status": "ready" if ok else "degraded", "checks": checks})
+
+    Instrumentator(should_group_status_codes=True, excluded_handlers=["/health","/ready","/metrics"]).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     @app.exception_handler(Exception)
     async def generic_handler(request: Request, exc: Exception):
