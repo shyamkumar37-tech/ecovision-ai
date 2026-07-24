@@ -8,6 +8,16 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
+
+try:
+    import prometheus_fastapi_instrumentator.routing as pfi_routing
+    _orig_get_route_name = pfi_routing._get_route_name
+    def _safe_get_route_name(scope, routes):
+        clean_routes = [r for r in routes if hasattr(r, "path")]
+        return _orig_get_route_name(scope, clean_routes)
+    pfi_routing._get_route_name = _safe_get_route_name
+except Exception:
+    pass
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
