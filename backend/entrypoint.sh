@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# entrypoint.sh — Docker entrypoint for EcoVision AI backend
-# Waits for PostgreSQL to be reachable, then runs Alembic migrations.
+# entrypoint.sh — Startup script for EcoVision AI backend
+# Waits for PostgreSQL (Supabase) to be reachable, then runs Alembic migrations and starts web server.
 
 set -euo pipefail
+
 
 echo "[entrypoint] Creating runtime directories..."
 mkdir -p /tmp/uploads /tmp/reports

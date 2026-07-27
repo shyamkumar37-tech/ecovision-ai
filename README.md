@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > Production-grade AI sustainability platform for universities and colleges.
-> IBM Granite (Watsonx.ai) · RAG · ChromaDB · FastAPI · React 19
+> OpenRouter LLM · RAG · Supabase · Render · Vercel · Redis · FastAPI · React 19
 
 ---
 
@@ -15,14 +15,14 @@
 | Feature | Description | SDG |
 |---------|-------------|-----|
 | **Sustainability Dashboard** | Real-time KPI cards, trend charts, composite score (0–100) | All |
-| **AI Chat Assistant** | IBM Granite via Watsonx + RAG from uploaded docs, streaming | 7,11,12,13 |
+| **AI Chat Assistant** | OpenRouter LLM + RAG from uploaded docs, streaming | 7,11,12,13 |
 | **Carbon Calculator** | IEA/IPCC emission factors, CO₂e breakdown, AI tips | SDG 13 |
 | **Waste Advisor** | Category classification, disposal methods, recycling guidance | SDG 12 |
 | **Document Intelligence** | PDF/DOCX upload → ChromaDB RAG → Q&A | All |
 | **Report Generator** | Celery-backed PDF with SDG scores, AI insights | All |
 | **Analytics** | Trends, peer benchmarking, 5-month forecasting | All |
 
-### Production Features (New)
+### Production Features
 | Feature | Implementation |
 |---------|---------------|
 | **Security headers** | CSP · HSTS · X-Frame-Options · X-Content-Type-Options |
@@ -32,7 +32,7 @@
 | **Email system** | SMTP-based welcome, weekly digest, threshold alerts |
 | **Scheduled tasks** | Celery Beat — weekly digest, threshold checks, DB cleanup |
 | **Admin panel** | User management, RBAC, audit trail, platform stats |
-| **CI/CD pipeline** | GitHub Actions — test, build, push to GHCR, deploy |
+| **CI/CD pipeline** | GitHub Actions — test, build & release |
 | **Observability** | Prometheus metrics, Sentry errors, structured JSON logs |
 | **Command palette** | ⌘K global search for quick navigation |
 | **Topbar** | Notifications panel, user menu, theme toggle |
@@ -44,38 +44,33 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                     Nginx (TLS + Gzip)                    │
-│              Rate limiting · Security headers             │
-└────────────────┬──────────────────┬──────────────────────┘
-                 │                  │
-       ┌─────────▼──────┐  ┌───────▼────────┐
-       │  React 19 SPA   │  │  FastAPI + UV  │
-       │  Vite · Tailwind│  │  Gunicorn 4w   │
-       │  TanStack Query │  │  /api/v1/*     │
-       │  Framer Motion  │  │  JWT auth      │
-       └────────────────┘  └───────┬────────┘
-                                   │
-           ┌───────────────────────┼──────────────────┐
-           │                       │                  │
-    ┌──────▼──────┐  ┌─────────────▼──────┐  ┌───────▼───────┐
-    │ PostgreSQL  │  │  ChromaDB           │  │  Redis        │
-    │ 9 tables    │  │  RAG vectors        │  │  Cache+Queue  │
-    │ Alembic     │  │  SentenceTransform  │  │  Celery broker│
-    └─────────────┘  └───────────────────┘  └───────────────┘
-                                │
-                    ┌───────────▼──────────┐
-                    │  Celery Workers       │
-                    │  • Report generation  │
-                    │  • Doc indexing       │
-                    │  • Weekly digest      │
-                    │  • Threshold alerts   │
-                    └───────────┬──────────┘
-                                │
-                    ┌───────────▼──────────┐
-                    │  IBM Granite LLM      │
-                    │  Watsonx.ai API       │
-                    │  Temperature: 0.3     │
-                    └──────────────────────┘
+│                   Vercel Frontend (SPA)                  │
+│              React 19 · Vite · Tailwind · Framer         │
+│              Global CDN · Automatic SPA Routing          │
+└────────────────────────────┬─────────────────────────────┘
+                             │ HTTPS / CORS
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│                Render Web Service (Backend)              │
+│            FastAPI (Uvicorn) · Native Python Runtime     │
+│                 Security headers · Rate limits           │
+└────────────────┬───────────────────────────┬─────────────┘
+                 │                           │
+  ┌──────────────▼──────────────┐  ┌─────────▼──────────────┐
+  │     Supabase PostgreSQL     │  │       Managed Redis    │
+  │     (Database & Storage)    │  │  (Cache & Celery Queue)│
+  │    Alembic migrations       │  └─────────┬──────────────┘
+  └─────────────────────────────┘            │
+                                   ┌─────────▼──────────────┐
+                                   │  Render Worker Service │
+                                   │  Celery Task Worker    │
+                                   │  • Reports & Doc RAG   │
+                                   └─────────┬──────────────┘
+                                             │
+                                   ┌─────────▼──────────────┐
+                                   │     OpenRouter AI      │
+                                   │   LLM Inference API    │
+                                   └────────────────────────┘
 ```
 
 ---
@@ -83,16 +78,17 @@
 ## 🚀 Quick Start (Local Development)
 
 ### Prerequisites
-- Docker & Docker Compose
 - Node.js 20+
 - Python 3.11+
+- PostgreSQL (or Supabase Connection String)
+- Redis (Local Redis or Managed Redis instance)
 
 ### 1. Clone and configure
 ```bash
 git clone https://github.com/your-org/ecovision-ai.git
 cd ecovision-ai
 cp .env.example .env
-# Edit .env — fill DATABASE_URL, SECRET_KEY, WATSONX_API_KEY
+# Edit .env — fill DATABASE_URL, SECRET_KEY, REDIS_URL, OPENROUTER_API_KEY
 ```
 
 ### 2. Generate a secure SECRET_KEY
@@ -100,34 +96,33 @@ cp .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-### 3. Start infrastructure
-```bash
-docker compose up -d postgres redis chromadb
-```
-
-### 4. Run database migrations
+### 3. Run database migrations
 ```bash
 cd backend
+python -m venv venv
+# On Linux/macOS: source venv/bin/activate
+# On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 alembic upgrade head
 ```
 
-### 5. Start backend
+### 4. Start backend API
 ```bash
 uvicorn app.main:app --reload --port 8000
 # Docs: http://localhost:8000/docs
 ```
 
-### 6. Start Celery worker
+### 5. Start Celery worker (in a separate terminal)
 ```bash
-celery -A celery_worker worker --loglevel=info
+cd backend
+celery -A app.core.celery_app worker --loglevel=info
 ```
 
-### 7. Start frontend
+### 6. Start frontend
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # set VITE_API_URL=http://localhost:8000
+cp .env.example .env   # set VITE_API_BASE_URL=http://localhost:8000
 npm run dev
 # → http://localhost:5173
 ```
@@ -140,20 +135,17 @@ npm run dev
 - [x] JWT access token: **30-minute TTL**
 - [x] JWT refresh token: **7-day rolling TTL**
 - [x] Token type field prevents token confusion attacks
-- [x] CORS: **strict allowlist** only (no wildcard)
+- [x] CORS: **strict allowlist** configured for Vercel domain
 - [x] **CSP headers** prevent XSS injection
-- [x] **HSTS** enforces HTTPS for 1 year
+- [x] **HSTS** enforces HTTPS in production
 - [x] `X-Frame-Options: DENY` prevents clickjacking
 - [x] Rate limiting: **20 req/min** on chat, **10/min** on login
 - [x] File uploads: **MIME type + 10MB** size validation
 - [x] All DB queries via **SQLAlchemy ORM** (no raw SQL)
 - [x] Secrets in **environment variables only**
-- [x] **Non-root Docker user** (ecovision:ecovision)
 - [x] **Audit log** for all sensitive operations
 - [x] **Request ID** header for distributed tracing
-- [x] Nginx: blocks `.env`, `.git`, `.sql` paths
 - [x] **Sentry** error tracking in production
-- [x] Server version header **removed** by Nginx
 
 ---
 
@@ -169,7 +161,7 @@ institutions (1) ──< users (1) ──< carbon_reports
              (1) ──< sustainability_metrics
 ```
 
-**9 tables** · UUID primary keys · Alembic migrations · PostgreSQL 16
+**9 tables** · UUID primary keys · Alembic migrations · PostgreSQL 16 (Supabase)
 
 ---
 
@@ -182,8 +174,6 @@ institutions (1) ──< users (1) ──< carbon_reports
 | **SDG 12** | Responsible Consumption & Production | Waste advisor, recycling guidance |
 | **SDG 13** | Climate Action | Carbon footprint, CO₂e tracking, SBT alignment |
 
-All AI recommendations are **auto-tagged** with relevant SDGs using keyword detection.
-
 ---
 
 ## 🧪 Testing
@@ -193,33 +183,31 @@ cd backend
 pytest tests/ -v --cov=app --cov-report=term-missing
 ```
 
-Test categories:
-- `TestSecurity` — password hashing, JWT, token tampering
-- `TestCarbonService` — emission factor calculations
-- `TestWasteService` — waste analysis, percentages
-- `TestSustainabilityScore` — composite score algorithm
-- `TestAPIEndpoints` — HTTP integration tests, security headers
-
 ---
 
 ## 🚢 Production Deployment
 
-### One-command deploy
-```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
-```
+### 1. Database Setup (Supabase)
+1. Create a project on [Supabase](https://supabase.com).
+2. Under **Project Settings -> Database -> Connection string**, copy your URI.
+3. Use Session Pooler (`port 5432`) or Transaction Pooler (`port 6543`).
 
-### Manual Render + Vercel
-1. Push to GitHub
-2. Connect `backend/` to Render Web Service
-3. Connect `frontend/` to Vercel
-4. Set environment variables in both dashboards
-5. Run `alembic upgrade head` via Render Shell
-6. Update `ALLOWED_ORIGINS` to your Vercel URL
+### 2. Backend & Worker Setup (Render)
+1. Push your code to GitHub.
+2. Log in to [Render](https://render.com) and click **New -> Blueprint**.
+3. Select this repository. Render automatically reads `render.yaml` to provision:
+   - `ecovision-backend` Web Service (Native Python)
+   - `ecovision-celery` Worker Service (Native Python)
+   - `ecovision-redis` Managed Redis Instance
+4. In Render Dashboard, set `DATABASE_URL` for `ecovision-backend` and `ecovision-celery` to your Supabase PostgreSQL connection string.
+5. Set `ALLOWED_ORIGINS` to your Vercel frontend URL.
 
-### Environment Variables Required
-See `.env.example` for the complete list (24 variables).
+### 3. Frontend Setup (Vercel)
+1. Import your project into [Vercel](https://vercel.com).
+2. Set the Root Directory to `./frontend` or use root with automatic Vercel project detection.
+3. Configure the environment variable:
+   - `VITE_API_BASE_URL` = `https://ecovision-backend.onrender.com`
+4. Deploy! `vercel.json` will automatically configure Vite SPA routing.
 
 ---
 
@@ -230,42 +218,45 @@ ecovision-ai/
 ├── .github/workflows/ci-cd.yml     # CI/CD pipeline
 ├── backend/
 │   ├── app/
-│   │   ├── ai/rag_pipeline.py       # IBM Granite + ChromaDB RAG
-│   │   ├── api/routes/              # 9 route files
-│   │   ├── core/                    # config, security, database, deps
-│   │   ├── middleware/security.py   # CSP, HSTS, request ID, logging
-│   │   ├── models/                  # 9 SQLAlchemy models
-│   │   ├── schemas/schemas.py       # All Pydantic v2 schemas
-│   │   └── services/                # business logic + Celery tasks
+│   │   ├── ai/rag_pipeline.py       # OpenRouter RAG Pipeline
+│   │   ├── api/routes/              # 9 API route modules
+│   │   ├── core/                    # Security, database, configuration
+│   │   ├── middleware/security.py   # Security headers, rate limiters
+│   │   ├── models/                  # SQLAlchemy models
+│   │   ├── schemas/schemas.py       # Pydantic schemas
+│   │   └── services/                # Business logic & Celery tasks
 │   ├── alembic/                     # DB migrations
-│   ├── tests/test_api.py            # Pytest test suite
-│   ├── Dockerfile                   # Multi-stage production build
-│   └── requirements.txt
+│   ├── entrypoint.sh                # Native backend runner
+│   ├── requirements.txt
+│   └── tests/
 ├── frontend/
-│   └── src/
-│       ├── components/layout/       # Sidebar, Topbar
-│       ├── pages/                   # 8 pages
-│       ├── hooks/                   # TanStack Query
-│       ├── stores/                  # Zustand
-│       └── lib/                     # API client, utils
-├── nginx/nginx.conf                 # Production Nginx
+│   ├── src/
+│   │   ├── components/ layout/      # Sidebar, Topbar, navigation
+│   │   ├── pages/                   # Application pages
+│   │   ├── hooks/                   # Custom TanStack query hooks
+│   │   ├── stores/                  # Zustand global stores
+│   │   └── lib/                     # API client & helpers
+│   ├── package.json
+│   └── vercel.json                  # Vercel configuration for SPA
 ├── scripts/
-│   ├── deploy.sh                    # Deployment script
-│   └── init.sql                     # DB indexes + extensions
-├── docker-compose.yml               # Local dev
-├── docker-compose.prod.yml          # Production
-└── .env.example
+│   ├── deploy.sh                    # Build & migration check utility
+│   ├── init.sql                     # Supabase/Postgres init script
+│   └── render-build.sh              # Render build & migration hook
+├── render.yaml                      # Render Blueprint specification
+├── vercel.json                      # Root Vercel configuration
+└── .env.example                     # Environment template
 ```
 
 ---
 
 ## 🔧 Tech Stack
 
-**Backend**: FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · JWT · bcrypt · Redis · Celery · ChromaDB · LangChain · IBM Granite · SentenceTransformers · ReportLab · Sentry · Prometheus
+**Backend**: FastAPI · Native Python · SQLAlchemy 2.0 · Alembic · Pydantic v2 · JWT · bcrypt · Redis · Celery · ChromaDB · LangChain · OpenRouter LLM · SentenceTransformers · ReportLab · Sentry · Prometheus
 
-**Frontend**: React 19 · TypeScript · Vite · Tailwind CSS · Framer Motion · TanStack Query · Zustand · Recharts · React Hook Form · Zod · Lucide React
+**Frontend**: React 19 · TypeScript · Vite · Vercel · Tailwind CSS · Framer Motion · TanStack Query · Zustand · Recharts · React Hook Form · Zod · Lucide React
 
-**Infrastructure**: PostgreSQL 16 · Redis 7 · ChromaDB · Nginx · Docker · Gunicorn · GitHub Actions
+**Hosting Infrastructure**: Render (Backend Web Service & Celery Worker) · Vercel (Frontend SPA) · Supabase (PostgreSQL 16) · Redis (Managed Broker & Cache) · GitHub Actions
+
 
 ---
 

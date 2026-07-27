@@ -1,5 +1,5 @@
 #!/bin/bash
-# scripts/deploy.sh — One-command production deployment
+# scripts/deploy.sh — Non-Docker local check & build utility for EcoVision AI
 # Usage: ./scripts/deploy.sh [--skip-build] [--no-migrate]
 
 set -euo pipefail
@@ -11,23 +11,17 @@ error()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # ── Pre-flight checks ──────────────────────────────────────────────
 info "Running pre-flight checks..."
-[[ -f ".env" ]]            || error ".env file not found. Copy .env.example and fill in values."
-[[ -f "docker-compose.prod.yml" ]] || error "docker-compose.prod.yml not found"
-command -v docker          &>/dev/null || error "Docker not installed"
-command -v docker          &>/dev/null && docker compose version &>/dev/null || error "Docker Compose not available"
-
-source .env
-[[ "${SECRET_KEY:-change-me}" == "change-me"* ]] && error "SECRET_KEY must be changed from default!"
-[[ "${POSTGRES_PASSWORD:-}" ]]                    || error "POSTGRES_PASSWORD is not set!"
-[[ "${REDIS_PASSWORD:-}" ]]                       || error "REDIS_PASSWORD is not set!"
+[[ -f ".env" ]] || warning ".env file not found. Ensure environment variables are configured in Render/Vercel dashboards."
+command -v python3 &>/dev/null || command -v python &>/dev/null || error "Python is required"
+command -v node    &>/dev/null || error "Node.js is required"
 
 mkdir -p backend/uploads backend/reports backend/logs
 
 info "Pre-flight checks passed ✓"
 
-# ── Build frontend ────────────────────────────────────────────────
+# ── Build frontend (for Vercel local validation) ───────────────────
 if [[ "${1:-}" != "--skip-build" ]]; then
-  info "Building React frontend..."
+  info "Building React frontend for Vercel target..."
   cd frontend
   npm ci --silent
   npm run build
@@ -35,42 +29,19 @@ if [[ "${1:-}" != "--skip-build" ]]; then
   info "Frontend build complete ✓"
 fi
 
-# ── Pull/build images ─────────────────────────────────────────────
-info "Building Docker images..."
-docker compose -f docker-compose.prod.yml build --no-cache backend celery_worker
-info "Images built ✓"
-
-# ── Start infrastructure ──────────────────────────────────────────
-info "Starting infrastructure services..."
-docker compose -f docker-compose.prod.yml up -d postgres redis chromadb
-info "Waiting for postgres to be ready..."
-sleep 8
-docker compose -f docker-compose.prod.yml exec postgres pg_isready -U "${POSTGRES_USER:-ecovision}" || error "Postgres not ready"
-
-# ── Database migrations ───────────────────────────────────────────
+# ── Database migrations (Supabase Postgres) ────────────────────────
 if [[ "${2:-}" != "--no-migrate" ]]; then
-  info "Running Alembic migrations..."
-  docker compose -f docker-compose.prod.yml run --rm backend alembic upgrade head
+  info "Running Alembic migrations against Supabase Database..."
+  cd backend
+  alembic upgrade head
+  cd ..
   info "Migrations complete ✓"
 fi
 
-# ── Start all services ─────────────────────────────────────────────
-info "Starting all services..."
-docker compose -f docker-compose.prod.yml up -d
-
-# ── Health check ──────────────────────────────────────────────────
-info "Waiting for backend to be healthy..."
-sleep 15
-HEALTH=$(curl -sf http://localhost:8000/health 2>/dev/null || echo "failed")
-if echo "$HEALTH" | grep -q '"status":"ok"'; then
-  info "Backend healthy ✓"
-else
-  warning "Backend health check failed — check logs: docker logs eco_backend"
-fi
-
-info "═══════════════════════════════════════════"
-info "  EcoVision AI deployed successfully! 🌿"
-info "  API:     http://localhost:8000"
-info "  Flower:  http://localhost:5555"
-info "  Metrics: http://localhost:8000/metrics"
-info "═══════════════════════════════════════════"
+info "═══════════════════════════════════════════════════════════"
+info "  EcoVision AI build & migrations verified! 🌿"
+info "  - Backend & Celery Worker target: Render (runtime: python)"
+info "  - Frontend target:               Vercel"
+info "  - Database target:               Supabase PostgreSQL"
+info "  - Cache/Queue target:            Redis"
+info "═══════════════════════════════════════════════════════════"

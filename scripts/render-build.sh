@@ -11,13 +11,15 @@
 set -euo pipefail
 
 echo "==> Installing Python dependencies..."
-pip install --no-cache-dir -r requirements.txt
+pip install --upgrade pip
+pip install --no-cache-dir -r backend/requirements.txt
 
-echo "==> Creating /tmp/uploads and /tmp/reports directories..."
+echo "==> Creating ephemeral storage directories..."
 mkdir -p /tmp/uploads /tmp/reports
 
-echo "==> Running Alembic database migrations..."
-cd /app 2>/dev/null || true
+echo "==> Running Alembic database migrations on Supabase Postgres..."
+cd backend
 alembic upgrade head
 
-echo "==> Build complete ✓"
+echo "==> Build & Migration complete ✓"
+

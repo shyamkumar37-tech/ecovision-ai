@@ -2,31 +2,31 @@
 # EcoVision AI — Render Blueprint (render.yaml)
 # Docs: https://render.com/docs/blueprint-spec
 #
+# HOSTING ARCHITECTURE:
+#   - Backend API: Render Web Service (Native Python runtime)
+#   - Background Tasks: Render Worker Service (Native Python runtime)
+#   - Cache / Task Broker: Render Managed Redis or Upstash Redis
+#   - Database: Supabase PostgreSQL (Set DATABASE_URL in Render Dashboard)
+#   - Frontend: Vercel Static Web App (https://vercel.com)
+#
 # SECRET SETUP:
 #   Upload your .env as a Secret File in the Render dashboard:
-#   → ecovision-backend  : Secret Files → Filename: /app/.env
-#   → ecovision-celery   : Secret Files → Filename: /app/.env
+#   → ecovision-backend  : Environment → Secret Files → Filename: /app/.env (or environment variables)
+#   → ecovision-celery   : Environment → Secret Files → Filename: /app/.env (or environment variables)
 #
-# DATABASE_URL and REDIS_URL are auto-injected from the services below
-# and will override anything in the .env file automatically.
+# DATABASE_URL: Connect to Supabase Postgres (Session Mode :5432 or Transaction Pooler :6543)
+# REDIS_URL: Connect to Render Managed Redis or External Redis (Upstash)
 ###############################################################################
-
-databases:
-  - name: ecovision-postgres
-    databaseName: ecovision
-    user: ecovision
-    plan: free
-    region: oregon
 
 services:
   # ---------------------------------------------------------------------------
-  # 1. Backend — FastAPI / Gunicorn web service
+  # 1. Backend — FastAPI / Uvicorn Web Service (Native Python)
   # ---------------------------------------------------------------------------
   - type: web
     name: ecovision-backend
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    runtime: python
+    buildCommand: bash scripts/render-build.sh
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     plan: starter
     region: oregon
     branch: main
@@ -34,19 +34,14 @@ services:
     healthCheckPath: /health
 
     envVars:
-      # ── Auto-injected from linked Render services (override .env file) ─────
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ecovision-postgres
-          property: connectionString
-
+      # ── Auto-injected from linked Render Redis service (if used) ───────────
       - key: REDIS_URL
         fromService:
           name: ecovision-redis
           type: redis
           property: connectionString
 
-      # ── Runtime overrides (not secrets, safe to be here) ───────────────────
+      # ── Runtime overrides ──────────────────────────────────────────────────
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
@@ -56,30 +51,27 @@ services:
       - key: REPORTS_DIR
         value: /tmp/reports
       - key: ALLOWED_ORIGINS
-        value: https://ecovision-frontend.onrender.com
+        value: https://ecovision-frontend.vercel.app
       - key: OPENROUTER_MODEL
         value: mistralai/mistral-7b-instruct
+      # Set DATABASE_URL in Render Dashboard to your Supabase Connection String:
+      # postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 
   # ---------------------------------------------------------------------------
-  # 2. Celery Worker
+  # 2. Celery Worker — Async Task Processor (Native Python)
   # ---------------------------------------------------------------------------
   - type: worker
     name: ecovision-celery
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile.celery
-    dockerContext: ./backend
+    runtime: python
+    buildCommand: pip install --no-cache-dir -r backend/requirements.txt
+    startCommand: cd backend && celery -A app.core.celery_app worker --loglevel=info
     plan: starter
     region: oregon
     branch: main
     autoDeploy: true
 
     envVars:
-      # ── Auto-injected from linked Render services ──────────────────────────
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ecovision-postgres
-          property: connectionString
-
+      # ── Auto-injected from linked Render Redis service ─────────────────────
       - key: REDIS_URL
         fromService:
           name: ecovision-redis
@@ -99,7 +91,7 @@ services:
         value: mistralai/mistral-7b-instruct
 
   # ---------------------------------------------------------------------------
-  # 3. Redis
+  # 3. Redis — Cache & Task Broker
   # ---------------------------------------------------------------------------
   - type: redis
     name: ecovision-redis
@@ -107,28 +99,5 @@ services:
     region: oregon
     maxmemoryPolicy: allkeys-lru
 
-  # ---------------------------------------------------------------------------
-  # 4. Frontend — Vite/React Static Site
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: ecovision-frontend
-    runtime: static
-    buildCommand: cd frontend && npm ci && npm run build
-    staticPublishPath: ./frontend/dist
-    region: oregon
-    branch: main
-    autoDeploy: true
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://ecovision-backend.onrender.com
+# NOTE: Frontend is hosted separately on Vercel.
+# Connect your repository to Vercel and deploy the frontend directory directly.

@@ -265,7 +265,7 @@ export default function Settings() {
                     { label:'SDG Framework',value:'UN 2030 Agenda' },
                     { label:'Reporting Yr', value:'2025' },
                     { label:'Benchmark',    value:'NAAC Green Campus' },
-                    { label:'AI Model',     value:'IBM Granite 13B' },
+                    { label:'AI Model',     value:'OpenRouter LLM' },
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <p className="label">{label}</p>

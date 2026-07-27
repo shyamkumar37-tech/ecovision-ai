@@ -151,7 +151,7 @@ As your EcoVision AI assistant, here are key sustainability insights for your ca
 • **Waste (SDG 12)**: Source-segregated recycling with QR-code bins increases recyclable capture rates from 30% to 75%.
 • **Carbon (SDG 13)**: Set a Science-Based Target aligned with 1.5°C — commit to 50% absolute emission reduction by 2030.
 
-Connect your IBM Granite backend to get RAG-powered answers from your uploaded sustainability documents.`
+Connect your OpenRouter LLM backend to get RAG-powered answers from your uploaded sustainability documents.`
 
       let i = 0
       const words = fallback.split(' ')
@@ -186,7 +186,7 @@ Connect your IBM Granite backend to get RAG-powered answers from your uploaded s
     <div className="flex flex-col h-screen p-6 max-w-4xl mx-auto">
       <PageHeader
         title="AI Sustainability Assistant"
-        subtitle="IBM Granite · RAG-enhanced · SDG-aligned"
+        subtitle="OpenRouter LLM · RAG-enhanced · SDG-aligned"
         action={
           messages.length > 0 && (
             <button onClick={clearSession} className="btn-ghost text-eco-muted hover:text-red-400">
@@ -213,7 +213,7 @@ Connect your IBM Granite backend to get RAG-powered answers from your uploaded s
             </div>
             <div className="text-center">
               <h3 className="font-display text-xl font-bold text-eco-text mb-1">EcoVision AI Ready</h3>
-              <p className="text-sm text-eco-muted max-w-sm">Ask anything about campus sustainability — powered by IBM Granite with RAG from your uploaded documents.</p>
+              <p className="text-sm text-eco-muted max-w-sm">Ask anything about campus sustainability — powered by RAG from your uploaded documents.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
               {QUICK_PROMPTS.map(({ icon: Icon, label, q }) => (

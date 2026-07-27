@@ -217,7 +217,7 @@ export function Documents() {
           {[
             { label: 'SentenceTransformer', status: 'OK',  color: '#22c55e' },
             { label: 'ChromaDB',             status: 'OK',  color: '#22c55e' },
-            { label: 'Granite LLM',          status: 'OK',  color: '#22c55e' },
+            { label: 'OpenRouter LLM',       status: 'OK',  color: '#22c55e' },
             { label: 'Redis Cache',           status: '95%', color: '#f59e0b' },
           ].map(({ label, status, color }) => (
             <div key={label} className="flex items-center gap-2 p-2.5 rounded-xl bg-eco-elevated/50 border border-eco-border/30">

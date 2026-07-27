@@ -78,7 +78,7 @@ and get AI-powered recommendations aligned with the UN SDGs.</p>
 <hr class="divider">
 <p><strong>What you can do:</strong></p>
 <p>📊 Monitor energy, water, waste, and carbon metrics<br>
-🤖 Chat with IBM Granite AI for actionable insights<br>
+🤖 Chat with EcoVision AI Assistant for actionable insights<br>
 📄 Upload sustainability documents for RAG-powered Q&A<br>
 📈 Generate PDF reports with SDG alignment scores</p>
 <a href="{settings.ALLOWED_ORIGINS[0] if settings.ALLOWED_ORIGINS else '#'}" class="btn">Open Dashboard</a>
