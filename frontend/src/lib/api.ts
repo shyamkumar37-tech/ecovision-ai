@@ -4,10 +4,15 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/authStore'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const rawBase = (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').trim().replace(/\/+$/, '')
+const BASE_URL = rawBase.endsWith('/api/v1') 
+  ? rawBase 
+  : rawBase.endsWith('/api') 
+    ? `${rawBase}/v1` 
+    : `${rawBase}/api/v1`
 
 export const api: AxiosInstance = axios.create({
-  baseURL: `${BASE_URL}/api`,
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30_000,
 })
@@ -54,7 +59,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(`${BASE_URL}/api/auth/refresh`, {
+        const { data } = await axios.post(`${BASE_URL}/auth/refresh`, {
           refresh_token: refreshToken,
         })
         setTokens(data.access_token, data.refresh_token)
@@ -112,7 +117,7 @@ export const chatApi = {
   history: (sessionId: string) => api.get(`/chat/history?session_id=${sessionId}`),
   stream:  async (message: string, sessionId: string, onToken: (t: string) => void) => {
     const token = useAuthStore.getState().accessToken
-    const res = await fetch(`${BASE_URL}/api/chat/message`, {
+    const res = await fetch(`${BASE_URL}/chat/message`, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -137,5 +142,5 @@ export const chatApi = {
 export const reportsApi = {
   generate: (d: unknown) => api.post('/reports/generate', d),
   status:   (id: string) => api.get(`/reports/${id}`),
-  download: (id: string) => `${BASE_URL}/api/reports/${id}/download`,
+  download: (id: string) => `${BASE_URL}/reports/${id}/download`,
 }
