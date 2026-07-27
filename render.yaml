@@ -3,7 +3,7 @@
 # Docs: https://render.com/docs/blueprint-spec
 #
 # HOSTING ARCHITECTURE:
-#   - Backend & Celery Worker: Render Web Service (Free Tier)
+#   - Backend & Celery Worker: Render Web Service (Free Tier - Python 3.11.9)
 #   - Cache / Task Broker: Upstash Redis (Free Tier)
 #   - Database: Supabase PostgreSQL (Free Tier)
 #   - Frontend: Vercel Static Web App (Free Tier)
@@ -17,7 +17,7 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # Backend API & Celery Worker — FastAPI (Native Python - 100% Free Tier)
+  # Backend API & Celery Worker — FastAPI (Native Python 3.11 - 100% Free Tier)
   # ---------------------------------------------------------------------------
   - type: web
     name: ecovision-backend
@@ -31,6 +31,8 @@ services:
     healthCheckPath: /health
 
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
