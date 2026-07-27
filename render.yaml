@@ -5,9 +5,16 @@
 # HOSTING ARCHITECTURE:
 #   - Backend API: Render Web Service (Native Python runtime)
 #   - Background Tasks: Render Worker Service (Native Python runtime)
-#   - Cache / Task Broker: Upstash Redis (https://upstash.com)
-#   - Database: Supabase PostgreSQL (https://supabase.com)
+#   - Cache / Task Broker: Upstash Redis (Set REDIS_URL in Render Dashboard)
+#   - Database: Supabase PostgreSQL (Set DATABASE_URL in Render Dashboard)
 #   - Frontend: Vercel Static Web App (https://vercel.com)
+#
+# SECRET SETUP:
+#   In Render Dashboard for ecovision-backend & ecovision-celery:
+#   - DATABASE_URL = postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres
+#   - REDIS_URL    = redis://default:[PASSWORD]@[HOST].upstash.io:6379
+#   - SECRET_KEY   = [YOUR-64-CHAR-HEX-SECRET]
+#   - OPENROUTER_API_KEY = [YOUR-OPENROUTER-KEY]
 ###############################################################################
 
 services:
@@ -38,9 +45,6 @@ services:
         value: https://ecovision-frontend.vercel.app
       - key: OPENROUTER_MODEL
         value: openrouter/free
-      # ── Set these in Render Dashboard (Environment Tab):
-      # DATABASE_URL = postgresql://postgres:[PASSWORD]@db.anmnftryknkbxinetxff.supabase.co:5432/postgres
-      # REDIS_URL    = redis://default:[PASSWORD]@shining-mink-141794.upstash.io:6379
 
   # ---------------------------------------------------------------------------
   # 2. Celery Worker — Async Task Processor (Native Python)
@@ -66,9 +70,6 @@ services:
         value: /tmp/reports
       - key: OPENROUTER_MODEL
         value: openrouter/free
-      # ── Set these in Render Dashboard (Environment Tab):
-      # DATABASE_URL = postgresql://postgres:[PASSWORD]@db.anmnftryknkbxinetxff.supabase.co:5432/postgres
-      # REDIS_URL    = redis://default:[PASSWORD]@shining-mink-141794.upstash.io:6379
 
 # NOTE: Frontend is hosted separately on Vercel.
 # Connect your repository to Vercel and deploy the frontend directory directly.
