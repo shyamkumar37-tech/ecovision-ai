@@ -16,6 +16,13 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_tables = inspector.get_table_names()
+
+    if 'institutions' in existing_tables:
+        return
+
     # ── institutions ──────────────────────────────────────────────
     op.create_table(
         'institutions',
