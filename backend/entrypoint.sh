@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# entrypoint.sh — High-Performance Startup script for EcoVision AI backend
-# Starts uvicorn web server immediately for instant Render port detection,
-# while running DB migration and Celery worker concurrently in the background.
+# entrypoint.sh — Memory-Optimized Startup Script for Render Free Tier (512MB RAM)
 
 set -euo pipefail
+
+# ── Memory Optimization for 512MB Free Tier Containers ─────────────────────
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export VECLIB_MAXIMUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false
 
 echo "[entrypoint] Creating runtime directories..."
 mkdir -p /tmp/uploads /tmp/reports
@@ -11,7 +17,7 @@ mkdir -p /tmp/uploads /tmp/reports
 PORT_TO_BIND="${PORT:-8000}"
 echo "[entrypoint] Binding web server immediately to PORT: ${PORT_TO_BIND}..."
 
-# ── Background initialization: DB Wait + Alembic Migrations + Celery ─────────
+# ── Background Initialization: DB Migration ────────────────────────────────
 (
   echo "[entrypoint-bg] Checking database connectivity..."
   python3 - <<'EOF'
@@ -42,9 +48,13 @@ EOF
   echo "[entrypoint-bg] Running database migrations..."
   python3 -m alembic upgrade head || echo "[entrypoint-bg] Migration completed or skipped"
 
-  echo "[entrypoint-bg] Starting background Celery worker..."
-  python3 -m celery -A celery_worker.celery_app worker --loglevel=info --concurrency=1 || echo "[entrypoint-bg] Celery worker note"
+  if [ "${ENABLE_CELERY_WORKER:-false}" = "true" ]; then
+    echo "[entrypoint-bg] Starting background Celery worker..."
+    python3 -m celery -A celery_worker.celery_app worker --loglevel=info --concurrency=1 || echo "[entrypoint-bg] Celery worker note"
+  else
+    echo "[entrypoint-bg] Celery worker disabled to conserve 512MB RAM on free tier."
+  fi
 ) &
 
-# ── Instant Web Server Binding (Fixes Render Port Scanner Timeout) ───────────
+# ── Start FastAPI Uvicorn Server ─────────────────────────────────────────────
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT_TO_BIND}"
