@@ -17,23 +17,7 @@ from typing import Any
 import redis
 from celery import shared_task
 from loguru import logger
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.platypus import (
-    HRFlowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
-)
-
 from app.core.config import settings
-
-
-# ── Color palette ─────────────────────────────────────────────────────────────
-GREEN      = colors.HexColor("#22c55e")
-DARK_GREEN = colors.HexColor("#166534")
-LIGHT_BG   = colors.HexColor("#f0fdf4")
-SLATE      = colors.HexColor("#334155")
-MUTED      = colors.HexColor("#64748b")
 
 
 def _get_redis() -> redis.Redis:
@@ -110,6 +94,20 @@ def _build_pdf(
     metrics: list[dict],
     include_ai: bool,
 ) -> None:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (
+        HRFlowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    )
+
+    GREEN      = colors.HexColor("#22c55e")
+    DARK_GREEN = colors.HexColor("#166534")
+    LIGHT_BG   = colors.HexColor("#f0fdf4")
+    SLATE      = colors.HexColor("#334155")
+    MUTED      = colors.HexColor("#64748b")
+
     styles = getSampleStyleSheet()
     h1 = ParagraphStyle("H1", parent=styles["Heading1"], textColor=DARK_GREEN, fontSize=20, spaceAfter=6)
     h2 = ParagraphStyle("H2", parent=styles["Heading2"], textColor=DARK_GREEN, fontSize=14, spaceAfter=4)

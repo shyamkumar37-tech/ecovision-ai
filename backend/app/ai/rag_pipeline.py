@@ -76,52 +76,76 @@ class _Resources:
 
     def __init__(self) -> None:
         self._embedder = None
-
-        if settings.CHROMA_HOST and settings.CHROMA_HOST not in ("localhost", "127.0.0.1"):
-            logger.info("Connecting to remote/container ChromaDB at {}:{}", settings.CHROMA_HOST, settings.CHROMA_PORT)
-            try:
-                self._chroma_client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
-            except Exception as e:
-                logger.warning("Failed to connect to ChromaDB HttpClient: {}. Falling back to PersistentClient.", e)
-                self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
-        else:
-            logger.info("Using local ChromaDB (persistent)")
-            self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
-
-        self.collection = self._chroma_client.get_or_create_collection(
-            name=settings.CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-        )
-
-        logger.info("Initialising OpenRouter LLM: {}", settings.OPENROUTER_MODEL)
-        # ChatOpenAI is compatible with OpenRouter's OpenAI-compatible API
-        self.llm = ChatOpenAI(
-            model=settings.OPENROUTER_MODEL,
-            openai_api_key=settings.OPENROUTER_API_KEY,
-            openai_api_base="https://openrouter.ai/api/v1",
-            max_tokens=512,
-            temperature=0.3,
-            model_kwargs={
-                # OpenRouter-specific headers passed via extra_headers
-                "extra_headers": {
-                    "HTTP-Referer": "https://ecovision-ai.onrender.com",
-                    "X-Title": "EcoVision AI",
-                },
-            },
-        )
-
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.CHUNK_SIZE,
-            chunk_overlap=settings.CHUNK_OVERLAP,
-            separators=["\n\n", "\n", ".", " "],
-        )
+        self._chroma_client = None
+        self._collection = None
+        self._llm = None
+        self._splitter = None
 
     @property
     def embedder(self):
         if self._embedder is None:
             logger.info("Lazy loading embedding model: {}", settings.EMBEDDING_MODEL)
-            self._embedder = SentenceTransformer(settings.EMBEDDING_MODEL)
+            from sentence_transformers import SentenceTransformer
+            self._embedder = SentenceTransformer(settings.EMBEDDING_MODEL, device="cpu")
         return self._embedder
+
+    @property
+    def chroma_client(self):
+        if self._chroma_client is None:
+            import chromadb
+            if settings.CHROMA_HOST and settings.CHROMA_HOST not in ("localhost", "127.0.0.1"):
+                try:
+                    self._chroma_client = chromadb.HttpClient(host=settings.CHROMA_HOST, port=settings.CHROMA_PORT)
+                except Exception:
+                    self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
+            else:
+                self._chroma_client = chromadb.PersistentClient(path="./chroma_db")
+        return self._chroma_client
+
+    @property
+    def collection(self):
+        if self._collection is None:
+            self._collection = self.chroma_client.get_or_create_collection(
+                name=settings.CHROMA_COLLECTION,
+                metadata={"hnsw:space": "cosine"},
+            )
+        return self._collection
+
+    @property
+    def llm(self):
+        if self._llm is None:
+            try:
+                from langchain_openai import ChatOpenAI
+            except ImportError:
+                from langchain_community.chat_models import ChatOpenAI
+            self._llm = ChatOpenAI(
+                model=settings.OPENROUTER_MODEL,
+                openai_api_key=settings.OPENROUTER_API_KEY,
+                openai_api_base="https://openrouter.ai/api/v1",
+                max_tokens=512,
+                temperature=0.3,
+                model_kwargs={
+                    "extra_headers": {
+                        "HTTP-Referer": "https://ecovision-ai.onrender.com",
+                        "X-Title": "EcoVision AI",
+                    },
+                },
+            )
+        return self._llm
+
+    @property
+    def splitter(self):
+        if self._splitter is None:
+            try:
+                from langchain_text_splitters import RecursiveCharacterTextSplitter
+            except ImportError:
+                from langchain.text_splitter import RecursiveCharacterTextSplitter
+            self._splitter = RecursiveCharacterTextSplitter(
+                chunk_size=settings.CHUNK_SIZE,
+                chunk_overlap=settings.CHUNK_OVERLAP,
+                separators=["\n\n", "\n", ".", " "],
+            )
+        return self._splitter
 
     @classmethod
     def get(cls) -> "_Resources":

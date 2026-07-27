@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.user import Document, DocumentStatus
-from app.ai.rag_pipeline import index_document
 
 
 def _sync_session():
@@ -39,6 +38,7 @@ def index_document_task(
     3. Embed + store in ChromaDB
     4. Update Document.status and Document.chunk_count in PostgreSQL
     """
+    from app.ai.rag_pipeline import index_document
     logger.info("Indexing document {} ({})", filename, document_id)
 
     session = _sync_session()

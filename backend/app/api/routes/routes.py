@@ -49,7 +49,6 @@ from app.services.carbon_service import calculate_carbon
 from app.services.report_task import generate_sustainability_report
 from app.services.sustainability_score import calculate_score
 from app.services.waste_service import analyze_waste
-from app.ai.rag_pipeline import query_rag, stream_rag
 
 
 def _get_redis():
@@ -423,6 +422,7 @@ async def chat_message(
     await db.flush()
 
     def _generate():
+        from app.ai.rag_pipeline import query_rag
         result = query_rag(body.message, current_user.institution_id, r)
         yield result["answer"]
         yield f"\n\n__SOURCES__:{json.dumps(result['sources'])}"

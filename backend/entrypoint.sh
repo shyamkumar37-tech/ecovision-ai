@@ -10,6 +10,9 @@ export OPENBLAS_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1
 export NUMEXPR_NUM_THREADS=1
 export TOKENIZERS_PARALLELISM=false
+export PYTHONHASHSEED=random
+export PYTHONMALLOC=malloc
+export MALLOC_TRIM_THRESHOLD_=100000
 
 echo "[entrypoint] Creating runtime directories..."
 mkdir -p /tmp/uploads /tmp/reports
