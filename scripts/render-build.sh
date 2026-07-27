@@ -10,8 +10,9 @@
 
 set -euo pipefail
 
-echo "==> Installing Python dependencies..."
+echo "==> Installing Python dependencies (CPU-only PyTorch to prevent 512MB RAM OOM)..."
 pip install --upgrade pip
+pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 pip install --no-cache-dir -r backend/requirements.txt
 
 echo "==> Creating ephemeral storage directories..."
