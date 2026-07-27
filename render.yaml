@@ -1,16 +1,14 @@
 ###############################################################################
-# EcoVision AI — Render Blueprint (render.yaml)
+# EcoVision AI — Render Blueprint (100% Free Plan)
 # Docs: https://render.com/docs/blueprint-spec
 #
 # HOSTING ARCHITECTURE:
-#   - Backend API: Render Web Service (Native Python runtime)
-#   - Background Tasks: Render Worker Service (Native Python runtime)
-#   - Cache / Task Broker: Upstash Redis (Set REDIS_URL in Render Dashboard)
-#   - Database: Supabase PostgreSQL (Set DATABASE_URL in Render Dashboard)
-#   - Frontend: Vercel Static Web App (https://vercel.com)
+#   - Backend & Celery Worker: Render Web Service (Free Tier)
+#   - Cache / Task Broker: Upstash Redis (Free Tier)
+#   - Database: Supabase PostgreSQL (Free Tier)
+#   - Frontend: Vercel Static Web App (Free Tier)
 #
-# SECRET SETUP:
-#   In Render Dashboard for ecovision-backend & ecovision-celery:
+# ENVIRONMENT SETUP IN RENDER DASHBOARD:
 #   - DATABASE_URL = postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres
 #   - REDIS_URL    = redis://default:[PASSWORD]@[HOST].upstash.io:6379
 #   - SECRET_KEY   = [YOUR-64-CHAR-HEX-SECRET]
@@ -19,14 +17,14 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # 1. Backend — FastAPI / Uvicorn Web Service (Native Python)
+  # Backend API & Celery Worker — FastAPI (Native Python - 100% Free Tier)
   # ---------------------------------------------------------------------------
   - type: web
     name: ecovision-backend
     runtime: python
     buildCommand: bash scripts/render-build.sh
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    plan: starter
+    startCommand: cd backend && (celery -A app.core.celery_app worker --loglevel=info &) && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
     region: oregon
     branch: main
     autoDeploy: true
@@ -45,31 +43,3 @@ services:
         value: https://ecovision-frontend.vercel.app
       - key: OPENROUTER_MODEL
         value: openrouter/free
-
-  # ---------------------------------------------------------------------------
-  # 2. Celery Worker — Async Task Processor (Native Python)
-  # ---------------------------------------------------------------------------
-  - type: worker
-    name: ecovision-celery
-    runtime: python
-    buildCommand: pip install --no-cache-dir -r backend/requirements.txt
-    startCommand: cd backend && celery -A app.core.celery_app worker --loglevel=info
-    plan: starter
-    region: oregon
-    branch: main
-    autoDeploy: true
-
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: DEBUG
-        value: "false"
-      - key: UPLOAD_DIR
-        value: /tmp/uploads
-      - key: REPORTS_DIR
-        value: /tmp/reports
-      - key: OPENROUTER_MODEL
-        value: openrouter/free
-
-# NOTE: Frontend is hosted separately on Vercel.
-# Connect your repository to Vercel and deploy the frontend directory directly.
