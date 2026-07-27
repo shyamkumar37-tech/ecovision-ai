@@ -67,12 +67,15 @@ EOF
   sleep $RETRY_DELAY
 done
 
-# ── Run Alembic migrations ──────────────────────────────────────────────────
+# ── Run Alembic migrations & background Celery worker ─────────────────────────
 echo "[entrypoint] Running database migrations..."
 (python3 -m alembic upgrade head || echo "[entrypoint] Alembic migration warning: continuing with app startup") &
+
+echo "[entrypoint] Starting background Celery worker..."
+(python3 -m celery -A app.core.celery_app worker --loglevel=info || echo "[entrypoint] Celery startup warning") &
 
 # ── Start the web server ────────────────────────────────────────────────────
 echo "[entrypoint] Starting web server..."
 PORT_TO_BIND="${PORT:-8000}"
 echo "[entrypoint] Binding web server to PORT: ${PORT_TO_BIND}"
-exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w 1 --bind "0.0.0.0:${PORT_TO_BIND}" --timeout 120 --access-logfile - --error-logfile -
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT_TO_BIND}"

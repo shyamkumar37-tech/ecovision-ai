@@ -17,9 +17,15 @@ pip install --no-cache-dir -r backend/requirements.txt
 echo "==> Creating ephemeral storage directories..."
 mkdir -p /tmp/uploads /tmp/reports
 
-echo "==> Running Alembic database migrations on Supabase Postgres..."
+echo "==> Running Alembic database migrations (if DATABASE_URL is available)..."
 cd backend
-alembic upgrade head
+python -c "
+import os
+url = os.environ.get('DATABASE_URL', '')
+if not url or 'localhost' in url or '127.0.0.1' in url:
+    print('[build] DATABASE_URL not set or localhost — skipping build-time migration.')
+    exit(0)
+" && alembic upgrade head || echo "[build] Migration skipped/deferred to runtime entrypoint."
 
-echo "==> Build & Migration complete ✓"
+echo "==> Build complete ✓"
 
