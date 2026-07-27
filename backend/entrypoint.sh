@@ -72,7 +72,7 @@ echo "[entrypoint] Running database migrations..."
 (python3 -m alembic upgrade head || echo "[entrypoint] Alembic migration warning: continuing with app startup") &
 
 echo "[entrypoint] Starting background Celery worker..."
-(python3 -m celery -A app.core.celery_app worker --loglevel=info || echo "[entrypoint] Celery startup warning") &
+(python3 -m celery -A celery_worker.celery_app worker --loglevel=info --concurrency=1 || echo "[entrypoint] Celery startup warning") &
 
 # ── Start the web server ────────────────────────────────────────────────────
 echo "[entrypoint] Starting web server..."

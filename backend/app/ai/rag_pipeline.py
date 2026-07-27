@@ -75,8 +75,7 @@ class _Resources:
     _instance: "_Resources | None" = None
 
     def __init__(self) -> None:
-        logger.info("Loading embedding model: {}", settings.EMBEDDING_MODEL)
-        self.embedder = SentenceTransformer(settings.EMBEDDING_MODEL)
+        self._embedder = None
 
         if settings.CHROMA_HOST and settings.CHROMA_HOST not in ("localhost", "127.0.0.1"):
             logger.info("Connecting to remote/container ChromaDB at {}:{}", settings.CHROMA_HOST, settings.CHROMA_PORT)
@@ -116,6 +115,13 @@ class _Resources:
             chunk_overlap=settings.CHUNK_OVERLAP,
             separators=["\n\n", "\n", ".", " "],
         )
+
+    @property
+    def embedder(self):
+        if self._embedder is None:
+            logger.info("Lazy loading embedding model: {}", settings.EMBEDDING_MODEL)
+            self._embedder = SentenceTransformer(settings.EMBEDDING_MODEL)
+        return self._embedder
 
     @classmethod
     def get(cls) -> "_Resources":
