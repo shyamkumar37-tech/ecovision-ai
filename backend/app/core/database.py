@@ -23,15 +23,18 @@ class Base(DeclarativeBase):
 
 def _build_async_url(url: str) -> str:
     """
-    Convert a sync postgres:// URL to asyncpg dialect.
-    Render / Railway supply postgresql:// — asyncpg needs postgresql+asyncpg://.
+    Convert a sync postgresql:// URL to asyncpg dialect.
+    Supabase & Render supply postgresql:// — asyncpg requires postgresql+asyncpg://.
     """
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-    if "sslmode=require" in url:
-        url = url.replace("sslmode=require", "ssl=require")
+    if "sslmode=require" in url or "sslmode=prefer" in url:
+        url = url.replace("sslmode=require", "ssl=require").replace("sslmode=prefer", "ssl=require")
+    elif "ssl=" not in url and not ("localhost" in url or "127.0.0.1" in url):
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}ssl=require"
     return url
 
 
