@@ -83,14 +83,14 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    prefix = "/api/v1"
-    app.include_router(auth_router,      prefix=prefix)
-    app.include_router(dashboard_router, prefix=prefix)
-    app.include_router(carbon_router,    prefix=prefix)
-    app.include_router(waste_router,     prefix=prefix)
-    app.include_router(docs_router,      prefix=prefix)
-    app.include_router(chat_router,      prefix=prefix)
-    app.include_router(reports_router,   prefix=prefix)
+    for prefix in ["/api/v1", "/api"]:
+        app.include_router(auth_router,      prefix=prefix)
+        app.include_router(dashboard_router, prefix=prefix)
+        app.include_router(carbon_router,    prefix=prefix)
+        app.include_router(waste_router,     prefix=prefix)
+        app.include_router(docs_router,      prefix=prefix)
+        app.include_router(chat_router,      prefix=prefix)
+        app.include_router(reports_router,   prefix=prefix)
 
     @app.get("/health", include_in_schema=False)
     async def health():
