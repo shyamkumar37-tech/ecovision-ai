@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     CHROMA_COLLECTION: str = "ecovision_docs"
     REDIS_URL: str = "redis://localhost:6379"
     CACHE_TTL_SECONDS: int = 3600
-    ALLOWED_ORIGINS: Union[List[str], str] = ["http://localhost:5173"]
+    ALLOWED_ORIGINS: Union[List[str], str] = ["*"]
     MAX_UPLOAD_SIZE_MB: int = 10
     UPLOAD_DIR: str = "uploads"
     REPORTS_DIR: str = "reports"
