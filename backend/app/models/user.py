@@ -63,7 +63,7 @@ class Institution(Base):
     name:     Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str] = mapped_column(String(255), nullable=False)
     type:     Mapped[InstitutionType] = mapped_column(
-        Enum(InstitutionType, name="institution_type"), nullable=False
+        Enum(InstitutionType, name="institution_type", create_type=False), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -81,7 +81,7 @@ class User(Base):
     email:           Mapped[str]      = mapped_column(String(255), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str]      = mapped_column(String(255), nullable=False)
     full_name:       Mapped[str]      = mapped_column(String(255), nullable=False)
-    role:            Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False)
+    role:            Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role", create_type=False), nullable=False)
     is_active:       Mapped[bool]     = mapped_column(Boolean, default=True)
     institution_id:  Mapped[str]      = mapped_column(ForeignKey("institutions.id"), nullable=False)
     created_at:      Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -164,7 +164,7 @@ class Document(Base):
     mime_type:   Mapped[str]            = mapped_column(String(100), nullable=False)
     file_size:   Mapped[int]            = mapped_column(Integer, nullable=False)
     status:      Mapped[DocumentStatus] = mapped_column(
-        Enum(DocumentStatus, name="document_status"), default=DocumentStatus.processing
+        Enum(DocumentStatus, name="document_status", create_type=False), default=DocumentStatus.processing
     )
     chunk_count: Mapped[Optional[int]]  = mapped_column(Integer, nullable=True)
     error_msg:   Mapped[Optional[str]]  = mapped_column(Text, nullable=True)
@@ -182,7 +182,7 @@ class ChatHistory(Base):
     id:           Mapped[str]      = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     user_id:      Mapped[str]      = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     session_id:   Mapped[str]      = mapped_column(String(100), nullable=False, index=True)
-    role:         Mapped[ChatRole] = mapped_column(Enum(ChatRole, name="chat_role"), nullable=False)
+    role:         Mapped[ChatRole] = mapped_column(Enum(ChatRole, name="chat_role", create_type=False), nullable=False)
     message:      Mapped[str]      = mapped_column(Text, nullable=False)
     sources_used: Mapped[dict]     = mapped_column(JSON, default=list)  # list of source citations
     created_at:   Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

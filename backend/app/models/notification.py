@@ -27,7 +27,7 @@ class Notification(Base):
 
     id:         Mapped[str]                  = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     user_id:    Mapped[str]                  = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    type:       Mapped[NotificationType]     = mapped_column(Enum(NotificationType, name="notification_type"), nullable=False)
+    type:       Mapped[NotificationType]     = mapped_column(Enum(NotificationType, name="notification_type", create_type=False), nullable=False)
     title:      Mapped[str]                  = mapped_column(String(255), nullable=False)
     body:       Mapped[str]                  = mapped_column(Text, nullable=False)
     meta:       Mapped[dict]                 = mapped_column(JSON, default=dict)
