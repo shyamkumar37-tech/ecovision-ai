@@ -5,17 +5,9 @@
 # HOSTING ARCHITECTURE:
 #   - Backend API: Render Web Service (Native Python runtime)
 #   - Background Tasks: Render Worker Service (Native Python runtime)
-#   - Cache / Task Broker: Render Managed Redis or Upstash Redis
-#   - Database: Supabase PostgreSQL (Set DATABASE_URL in Render Dashboard)
+#   - Cache / Task Broker: Upstash Redis (https://upstash.com)
+#   - Database: Supabase PostgreSQL (https://supabase.com)
 #   - Frontend: Vercel Static Web App (https://vercel.com)
-#
-# SECRET SETUP:
-#   Upload your .env as a Secret File in the Render dashboard:
-#   → ecovision-backend  : Environment → Secret Files → Filename: /app/.env (or environment variables)
-#   → ecovision-celery   : Environment → Secret Files → Filename: /app/.env (or environment variables)
-#
-# DATABASE_URL: Connect to Supabase Postgres (Session Mode :5432 or Transaction Pooler :6543)
-# REDIS_URL: Connect to Render Managed Redis or External Redis (Upstash)
 ###############################################################################
 
 services:
@@ -34,14 +26,6 @@ services:
     healthCheckPath: /health
 
     envVars:
-      # ── Auto-injected from linked Render Redis service (if used) ───────────
-      - key: REDIS_URL
-        fromService:
-          name: ecovision-redis
-          type: redis
-          property: connectionString
-
-      # ── Runtime overrides ──────────────────────────────────────────────────
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
@@ -53,9 +37,10 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://ecovision-frontend.vercel.app
       - key: OPENROUTER_MODEL
-        value: mistralai/mistral-7b-instruct
-      # Set DATABASE_URL in Render Dashboard to your Supabase Connection String:
-      # postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+        value: openrouter/free
+      # ── Set these in Render Dashboard (Environment Tab):
+      # DATABASE_URL = postgresql://postgres:[PASSWORD]@db.anmnftryknkbxinetxff.supabase.co:5432/postgres
+      # REDIS_URL    = redis://default:[PASSWORD]@shining-mink-141794.upstash.io:6379
 
   # ---------------------------------------------------------------------------
   # 2. Celery Worker — Async Task Processor (Native Python)
@@ -71,14 +56,6 @@ services:
     autoDeploy: true
 
     envVars:
-      # ── Auto-injected from linked Render Redis service ─────────────────────
-      - key: REDIS_URL
-        fromService:
-          name: ecovision-redis
-          type: redis
-          property: connectionString
-
-      # ── Runtime overrides ──────────────────────────────────────────────────
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
@@ -88,16 +65,10 @@ services:
       - key: REPORTS_DIR
         value: /tmp/reports
       - key: OPENROUTER_MODEL
-        value: mistralai/mistral-7b-instruct
-
-  # ---------------------------------------------------------------------------
-  # 3. Redis — Cache & Task Broker
-  # ---------------------------------------------------------------------------
-  - type: redis
-    name: ecovision-redis
-    plan: free
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
+        value: openrouter/free
+      # ── Set these in Render Dashboard (Environment Tab):
+      # DATABASE_URL = postgresql://postgres:[PASSWORD]@db.anmnftryknkbxinetxff.supabase.co:5432/postgres
+      # REDIS_URL    = redis://default:[PASSWORD]@shining-mink-141794.upstash.io:6379
 
 # NOTE: Frontend is hosted separately on Vercel.
 # Connect your repository to Vercel and deploy the frontend directory directly.
